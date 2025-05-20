@@ -1,5 +1,5 @@
 # mono_to_stereo.py
-
+from pathlib import Path
 import os
 import cv2
 import numpy as np
@@ -11,31 +11,32 @@ import argparse
 
 def run_stereo_pipeline(video_file, depth_file, output_dir, baseline=25):
     # STEP 1: Create folders for frame extraction and output
+    output_dir = Path(output_dir)
     folders = {
-        "video_frames": "video_frames",
-        "depth_frames": "depth_frames",
-        "left_frames": "left_frames",
-        "right_frames": "right_frames",
-        "ou_frames": "ou_frames"
+        "video_frames": output_dir / "video_frames",
+        "depth_frames": output_dir / "depth_frames",
+        "left_frames": output_dir / "left_frames",
+        "right_frames": output_dir / "right_frames",
+        "ou_frames": output_dir / "ou_frames"
     }
     for folder in folders.values():
         os.makedirs(folder, exist_ok=True)
-    os.makedirs(output_dir, exist_ok=True)
-
-    # STEP 2: Extract frames
-    print("🎞️ Extracting frames...")
-
+        # STEP 2: Extract frames
+        print("🎞️ Extracting frames...")
     subprocess.run([
         "ffmpeg", "-i", video_file, "-q:v", "1",
-        os.path.join(folders["video_frames"], "frame_%04d.png")
+        str(folders["video_frames"] / "frame_%04d.png")
     ])
 
     subprocess.run([
         "ffmpeg", "-i", depth_file, "-q:v", "1",
-        os.path.join(folders["depth_frames"], "frame_%04d.png")
+        str(folders["depth_frames"] / "frame_%04d.png")
     ])
-
+    video_frames = sorted(os.listdir(folders["video_frames"]))
+    depth_frames = sorted(os.listdir(folders["depth_frames"]))
+    print(f"🧪 Found {len(video_frames)} video frames and {len(depth_frames)} depth frames")
     # STEP 3: Generate stereo output with progress bar
+
     def generate_stereo_all(video_dir, depth_dir, left_dir, right_dir, ou_dir, baseline=25):
         frame_names = sorted(os.listdir(video_dir))
         print(f"🔧 Generating stereo frames ({len(frame_names)} total)...")
@@ -65,6 +66,9 @@ def run_stereo_pipeline(video_file, depth_file, output_dir, baseline=25):
             cv2.imwrite(os.path.join(right_dir, fname), right_eye)
             ou_frame = np.vstack((left_eye, right_eye))
             cv2.imwrite(os.path.join(ou_dir, fname), ou_frame)
+            cv2.imwrite(str(right_dir / fname), right_eye)
+            ou_frame = np.vstack((left_eye, right_eye))
+            cv2.imwrite(str(ou_dir / fname), ou_frame)
 
     generate_stereo_all(
         folders["video_frames"],
@@ -75,34 +79,30 @@ def run_stereo_pipeline(video_file, depth_file, output_dir, baseline=25):
         baseline
     )
 
-    # STEP 4: Encode final videos
     print("🎞️ Encoding final videos...")
 
-    subprocess.run([
-        "ffmpeg", "-framerate", "25", "-i",
-        os.path.join(folders["left_frames"], "frame_%04d.png"),
-        "-c:v", "libx264", "-crf", "0", "-preset", "veryslow",
-        "-pix_fmt", "yuv420p", os.path.join(output_dir, "left_eye.mp4")
-    ])
+    def encode_video(frames_dir, output_name):
+        subprocess.run([
+            "ffmpeg", "-framerate", "25", "-i",
+            str(frames_dir / "frame_%04d.png"),
+            "-c:v", "libx264", "-crf", "0", "-preset", "veryslow",
+            "-pix_fmt", "yuv420p", str(output_dir / output_name)
+        ], check=True)
 
-    subprocess.run([
-        "ffmpeg", "-framerate", "25", "-i",
-        os.path.join(folders["right_frames"], "frame_%04d.png"),
-        "-c:v", "libx264", "-crf", "0", "-preset", "veryslow",
-        "-pix_fmt", "yuv420p", os.path.join(output_dir, "right_eye.mp4")
-    ])
+    encode_video(folders["left_frames"], "left_eye.mp4")
+    encode_video(folders["right_frames"], "right_eye.mp4")
+    encode_video(folders["ou_frames"], "stereo_over_under.mp4")
 
-    subprocess.run([
-        "ffmpeg", "-framerate", "25", "-i",
-        os.path.join(folders["ou_frames"], "frame_%04d.png"),
-        "-c:v", "libx264", "-crf", "0", "-preset", "veryslow",
-        "-pix_fmt", "yuv420p", os.path.join(output_dir, "stereo_over_under.mp4")
-    ])
-
-    # STEP 5: Cleanup
     print("🧹 Cleaning up temporary folders...")
     for folder in folders.values():
         shutil.rmtree(folder, ignore_errors=True)
+
+    print(f"✅ All done! Final outputs saved to: {output_dir}")
+
+    # STEP 5: Cleanup
+    print("🧹 Cleaning up temporary folders...")
+#    for folder in folders.values():
+#        shutil.rmtree(folder, ignore_errors=True)
 
     print(f"✅ All done! Videos saved to:\n📁 {output_dir}")
 
