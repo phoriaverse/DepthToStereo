@@ -1,0 +1,4 @@
+-e ../../third-party/Video-Depth-Anything
+opencv-python-headless 
+numpy
+tqdm
