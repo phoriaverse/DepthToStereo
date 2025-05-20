@@ -11,7 +11,7 @@ ENCODER = "vitl"
 
 def generate_depth(input_video: Path, output_dir: Path) -> Path:
     video_name = input_video.stem
-    depth_out = output_dir / "depth"
+    depth_out = output_dir 
     depth_out.mkdir(parents=True, exist_ok=True)
 
     interpreter = str(sys.executable)
@@ -32,24 +32,29 @@ def generate_depth(input_video: Path, output_dir: Path) -> Path:
     ], cwd=cwd, check=True)
 
     return depth_out / f"{video_name}_vis.mp4"
-def orchestrate_pipeline(input_video: Path, output_dir: Path, baseline: float = 25.0):
+def orchestrate_pipeline(input_video: Path, output_root: Path, baseline: float = 25.0):
     input_video = input_video.resolve()
-    output_dir = output_dir.resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
+    video_stem = input_video.stem
+    output_root = output_root.resolve()
+    
+    job_dir = output_root / f"{video_stem}_outputs"
+    depth_out = job_dir
+    stereo_out = job_dir
+
+    depth_out.mkdir(parents=True, exist_ok=True)
+    stereo_out.mkdir(parents=True, exist_ok=True)
 
     print(f"🎬 Starting full depth + stereo pipeline")
     print(f"🎥 Input video: {input_video}")
-    print(f"📦 Output folder: {output_dir}")
+    print(f"📦 Job folder: {job_dir}")
 
     # 1. Generate depth
-    depth_video = generate_depth(input_video, output_dir)
+    depth_video = generate_depth(input_video, depth_out)
 
     # 2. Generate stereo
-    stereo_out = output_dir / "stereo"
-    stereo_out.mkdir(exist_ok=True)
-    run_stereo_pipeline(str(input_video), str(depth_video), str(stereo_out), baseline=baseline)
+    run_stereo_pipeline(str(video_stem), str(input_video), str(depth_video), str(stereo_out), baseline=baseline)
 
-    print(f"✅ All done! Stereo results in: {stereo_out}")
+    print(f"✅ All done! Outputs in: {job_dir}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Orchestrator: Mono video ➝ Depth ➝ Stereo 180")
