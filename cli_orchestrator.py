@@ -4,6 +4,8 @@ import subprocess
 from pathlib import Path
 from app import run_stereo_pipeline  # make sure this is importable!
 import sys
+import cv2
+
 # === CONFIG: Adjust this if needed ===
 VIDEO_DEPTH_ANYTHING_PATH = Path("C:/Users/Phoria - WS01/sam/third-party/Video-Depth-Anything").resolve()
 DEPTH_SCRIPT = VIDEO_DEPTH_ANYTHING_PATH / "run.py"
@@ -17,6 +19,8 @@ def generate_depth(input_video: Path, output_dir: Path) -> Path:
     interpreter = str(sys.executable)
     script = str((VIDEO_DEPTH_ANYTHING_PATH / "run.py").resolve())
     cwd = str(VIDEO_DEPTH_ANYTHING_PATH.resolve())
+    max_res = get_video_resolution(str(input_video))
+    print(f"🧪 Max resolution detected: {max_res}")
 
     print(f"🧪 Executing: {interpreter} {script}")
     print(f"📁 Absolute cwd: {cwd}")
@@ -28,10 +32,25 @@ def generate_depth(input_video: Path, output_dir: Path) -> Path:
         "--input_video", str(input_video),
         "--output_dir", str(depth_out),
         "--encoder", ENCODER,
+        "--max-res", max_res
         #"--fp32", "--grayscale"
     ], cwd=cwd, check=True)
 
     return depth_out / f"{video_name}_vis.mp4"
+
+    import cv2
+
+def get_video_resolution(video_path: str) -> int:
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError(f"Unable to open video: {video_path}")
+
+    width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+    height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    cap.release()
+
+    return int(max(width, height))  # depth script uses max_res based on larger dimension
+
 def orchestrate_pipeline(input_video: Path, output_root: Path, baseline: float = 25.0):
     input_video = input_video.resolve()
     video_stem = input_video.stem
