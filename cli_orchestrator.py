@@ -7,9 +7,9 @@ import sys
 import cv2
 
 # === CONFIG: Adjust this if needed ===
-VIDEO_DEPTH_ANYTHING_PATH = Path("C:/Users/Phoria - WS01/sam/third-party/Video-Depth-Anything").resolve()
+VIDEO_DEPTH_ANYTHING_PATH = Path("/Users/sam/Documents/third-party/Video-Depth-Anything").resolve()
 DEPTH_SCRIPT = VIDEO_DEPTH_ANYTHING_PATH / "run.py"
-ENCODER = "vitl"
+ENCODER = "vits"
 
 def generate_depth(input_video: Path, output_dir: Path) -> Path:
     video_name = input_video.stem
@@ -32,13 +32,11 @@ def generate_depth(input_video: Path, output_dir: Path) -> Path:
         "--input_video", str(input_video),
         "--output_dir", str(depth_out),
         "--encoder", ENCODER,
-        "--max-res", max_res
+        "--max_res", str(max_res)
         #"--fp32", "--grayscale"
     ], cwd=cwd, check=True)
 
     return depth_out / f"{video_name}_vis.mp4"
-
-    import cv2
 
 def get_video_resolution(video_path: str) -> int:
     cap = cv2.VideoCapture(video_path)
@@ -51,7 +49,7 @@ def get_video_resolution(video_path: str) -> int:
 
     return int(max(width, height))  # depth script uses max_res based on larger dimension
 
-def orchestrate_pipeline(input_video: Path, output_root: Path, baseline: float = 25.0):
+def orchestrate_pipeline(input_video: Path, output_root: Path, baseline: float = 15.0, precomputed_depth: Path = None):
     input_video = input_video.resolve()
     video_stem = input_video.stem
     output_root = output_root.resolve()
@@ -68,8 +66,12 @@ def orchestrate_pipeline(input_video: Path, output_root: Path, baseline: float =
     print(f"📦 Job folder: {job_dir}")
 
     # 1. Generate depth
-    depth_video = generate_depth(input_video, depth_out)
-
+    if precomputed_depth:
+        print(f"📥 Using precomputed depth map: {precomputed_depth}")
+        depth_video = Path(precomputed_depth).resolve()
+    else:
+        print("🧠 Running depth generation stage...")
+        depth_video = generate_depth(input_video, depth_out)
     # 2. Generate stereo
     run_stereo_pipeline(str(video_stem), str(input_video), str(depth_video), str(stereo_out), baseline=baseline)
 
@@ -78,6 +80,7 @@ def orchestrate_pipeline(input_video: Path, output_root: Path, baseline: float =
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Orchestrator: Mono video ➝ Depth ➝ Stereo 180")
     parser.add_argument("--video", required=True, help="Path to input mono video")
+    # parser.add_argument("--depth", type=str, help="Optional precomputed depth .mp4")
     parser.add_argument("--out", required=True, help="Path to output folder")
     parser.add_argument("--baseline", type=float, default=25.0, help="Stereo disparity baseline (default=25)")
     args = parser.parse_args()

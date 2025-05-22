@@ -1,4 +1,4 @@
 -e ../Video-Depth-Anything
 opencv-python-headless 
-numpy
+# numpy
 tqdm

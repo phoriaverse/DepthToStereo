@@ -37,38 +37,50 @@ def run_stereo_pipeline(video_name, video_file, depth_file, output_dir, baseline
     print(f"🧪 Found {len(video_frames)} video frames and {len(depth_frames)} depth frames")
     # STEP 3: Generate stereo output with progress bar
 
-    def generate_stereo_all(video_dir, depth_dir, left_dir, right_dir, ou_dir, baseline=25):
+    def generate_stereo_all(video_dir, depth_dir, left_dir, right_dir, ou_dir, baseline=15):
         frame_names = sorted(os.listdir(video_dir))
         print(f"🔧 Generating stereo frames ({len(frame_names)} total)...")
 
         for fname in tqdm(frame_names, desc="Stereo synthesis", unit="frame"):
-            color_path = os.path.join(video_dir, fname)
-            depth_path = os.path.join(depth_dir, fname)
+            color_path = Path(video_dir) / fname
+            depth_path = Path(depth_dir) / fname
 
-            color = cv2.imread(color_path)
-            depth = cv2.imread(depth_path, cv2.IMREAD_GRAYSCALE)
+            color = cv2.imread(str(color_path))
+            depth = cv2.imread(str(depth_path), cv2.IMREAD_GRAYSCALE)
 
             if color is None or depth is None:
+                print(f"⚠️ Skipping {fname} due to read error")
                 continue
 
-            h, w = depth.shape
-            norm_depth = cv2.normalize(depth.astype(np.float32), None, 0, 1, cv2.NORM_MINMAX)
-            disparity = (1 - norm_depth) * baseline
+            # ✅ Blur to reduce harsh depth jumps
+            smoothed_depth = cv2.medianBlur(depth, 5)
 
+            # ✅ Normalize to 0-1 range for stable disparity
+            norm_depth = cv2.normalize(smoothed_depth.astype(np.float32), None, 0, 1, cv2.NORM_MINMAX)
+
+            # ✅ Safe disparity calculation
+            disparity = np.nan_to_num((1 - norm_depth) * baseline)
+
+            h, w = depth.shape
             map_x, map_y = np.meshgrid(np.arange(w), np.arange(h))
+
             map_left = (map_x + disparity / 2).astype(np.float32)
             map_right = (map_x - disparity / 2).astype(np.float32)
 
-            left_eye = cv2.remap(color, map_left, map_y.astype(np.float32), cv2.INTER_LINEAR)
-            right_eye = cv2.remap(color, map_right, map_y.astype(np.float32), cv2.INTER_LINEAR)
+            # ✅ Border mode protects against edge bleeding
+            left_eye = cv2.remap(color, map_left, map_y.astype(np.float32), cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+            right_eye = cv2.remap(color, map_right, map_y.astype(np.float32), cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
 
-            cv2.imwrite(os.path.join(left_dir, fname), left_eye)
-            cv2.imwrite(os.path.join(right_dir, fname), right_eye)
+            # ✅ Fallback if remap somehow fails
+            if left_eye is None or right_eye is None:
+                print(f"⚠️ Frame {fname} remap failed")
+                continue
+
+            cv2.imwrite(str(Path(left_dir) / fname), left_eye)
+            cv2.imwrite(str(Path(right_dir) / fname), right_eye)
+
             ou_frame = np.vstack((left_eye, right_eye))
-            cv2.imwrite(os.path.join(ou_dir, fname), ou_frame)
-            cv2.imwrite(str(right_dir / fname), right_eye)
-            ou_frame = np.vstack((left_eye, right_eye))
-            cv2.imwrite(str(ou_dir / fname), ou_frame)
+            cv2.imwrite(str(Path(ou_dir) / fname), ou_frame)
 
     generate_stereo_all(
         folders["video_frames"],
@@ -85,7 +97,7 @@ def run_stereo_pipeline(video_name, video_file, depth_file, output_dir, baseline
         subprocess.run([
             "ffmpeg", "-framerate", "25", "-i",
             str(frames_dir / "frame_%04d.png"),
-            "-c:v", "libx264", "-crf", "0", "-preset", "veryslow",
+            "-c:v", "libx265", "-crf", "20", "-preset", "veryslow", "-tag:v", "hvc1",
             "-pix_fmt", "yuv420p", str(output_dir / output_name)
         ], check=True)
 
