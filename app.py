@@ -10,6 +10,16 @@ import argparse
 
 
 def run_stereo_pipeline(video_name, video_file, depth_file, output_dir, baseline=25):
+    
+    video_file = Path(video_file).resolve()
+    depth_file = Path(depth_file).resolve()
+    output_dir = Path(output_dir).resolve()
+
+    if not video_file.exists():
+        raise FileNotFoundError(f"🎥 Video file not found: {video_file}")
+    if not depth_file.exists():
+        raise FileNotFoundError(f"🧠 Depth file not found: {depth_file}")
+
     # STEP 1: Create folders for frame extraction and output
     output_dir = Path(output_dir)
     folders = {
@@ -26,12 +36,13 @@ def run_stereo_pipeline(video_name, video_file, depth_file, output_dir, baseline
     subprocess.run([
         "ffmpeg", "-i", video_file, "-q:v", "1",
         str(folders["video_frames"] / "frame_%04d.png")
-    ])
+    ], check = True)
 
     subprocess.run([
         "ffmpeg", "-i", depth_file, "-q:v", "1",
         str(folders["depth_frames"] / "frame_%04d.png")
-    ])
+    ], check = True)
+    
     video_frames = sorted(os.listdir(folders["video_frames"]))
     depth_frames = sorted(os.listdir(folders["depth_frames"]))
     print(f"🧪 Found {len(video_frames)} video frames and {len(depth_frames)} depth frames")

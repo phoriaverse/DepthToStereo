@@ -71,7 +71,7 @@ def orchestrate_pipeline(input_video: Path, output_root: Path, baseline: float =
         depth_video = Path(precomputed_depth).resolve()
     else:
         print("🧠 Running depth generation stage...")
-        depth_video = generate_depth(input_video, depth_out)
+        depth_video = generate_depth(input_video, depth_out).resolve()
     # 2. Generate stereo
     run_stereo_pipeline(str(video_stem), str(input_video), str(depth_video), str(stereo_out), baseline=baseline)
 
