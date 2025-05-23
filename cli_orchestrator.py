@@ -7,8 +7,9 @@ import sys
 import cv2
 
 # === CONFIG: Adjust this if needed ===
-VIDEO_DEPTH_ANYTHING_PATH = Path("/Users/sam/Documents/third-party/Video-Depth-Anything").resolve()
-DEPTH_SCRIPT = VIDEO_DEPTH_ANYTHING_PATH / "run.py"
+CURRENT_DIR = Path(__file__).parent.resolve()
+DEPTH_ANYTHING_PATH = CURRENT_DIR.parent / "VideoDepthAnythingFork"
+DEPTH_SCRIPT = DEPTH_ANYTHING_PATH / "run.py"
 ENCODER = "vits"
 
 def generate_depth(input_video: Path, output_dir: Path) -> Path:
@@ -17,8 +18,8 @@ def generate_depth(input_video: Path, output_dir: Path) -> Path:
     depth_out.mkdir(parents=True, exist_ok=True)
 
     interpreter = str(sys.executable)
-    script = str((VIDEO_DEPTH_ANYTHING_PATH / "run.py").resolve())
-    cwd = str(VIDEO_DEPTH_ANYTHING_PATH.resolve())
+    script = str((DEPTH_ANYTHING_PATH / "run.py").resolve())
+    cwd = str(DEPTH_ANYTHING_PATH.resolve())
     max_res = get_video_resolution(str(input_video))
     print(f"🧪 Max resolution detected: {max_res}")
 
