@@ -81,9 +81,9 @@ def orchestrate_pipeline(input_video: Path, output_root: Path, baseline: float =
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Orchestrator: Mono video ➝ Depth ➝ Stereo 180")
     parser.add_argument("--video", required=True, help="Path to input mono video")
-    # parser.add_argument("--depth", type=str, help="Optional precomputed depth .mp4")
     parser.add_argument("--out", required=True, help="Path to output folder")
     parser.add_argument("--baseline", type=float, default=25.0, help="Stereo disparity baseline (default=25)")
+    parser.add_argument("--depth", type=str, help="Optional precomputed depth .mp4")
     args = parser.parse_args()
 
-    orchestrate_pipeline(Path(args.video), Path(args.out), baseline=args.baseline)
+    orchestrate_pipeline(Path(args.video), Path(args.out), baseline=args.baseline, precomputed_depth=Path(args.depth) if args.depth else None)
