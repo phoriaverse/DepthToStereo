@@ -1,4 +1,4 @@
--e ../Video-Depth-Anything
+-e ../VideoDepthAnythingFork
 opencv-python-headless 
 scenedetect
 # numpy
