@@ -112,8 +112,8 @@ def run_stereo_pipeline(video_name, video_file, depth_file, output_dir, baseline
             "-pix_fmt", "yuv420p", str(output_dir / output_name)
         ], check=True)
 
-    encode_video(folders["left_frames"], f"{video_name}_left_eye.mp4")
-    encode_video(folders["right_frames"], f"{video_name}_right_eye.mp4")
+    # encode_video(folders["left_frames"], f"{video_name}_left_eye.mp4")
+    # encode_video(folders["right_frames"], f"{video_name}_right_eye.mp4")
     encode_video(folders["ou_frames"], f"{video_name}_stereo_over_under.mp4")
 
     print("🧹 Cleaning up temporary folders...")

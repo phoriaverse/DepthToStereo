@@ -1,4 +1,6 @@
 -e ../Video-Depth-Anything
 opencv-python-headless 
+scenedetect
 # numpy
 tqdm
+opencv-python
