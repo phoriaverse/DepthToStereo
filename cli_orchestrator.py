@@ -143,4 +143,4 @@ if __name__ == "__main__":
             )
         else:
             orchestrate_pipeline(video_path, Path(args.out))
-    orchestrate_pipeline(Path(args.video), Path(args.out), baseline=args.baseline, precomputed_depth=Path(args.depth) if args.depth else None)
+    # orchestrate_pipeline(Path(args.video), Path(args.out), baseline=args.baseline, precomputed_depth=Path(args.depth) if args.depth else None)
