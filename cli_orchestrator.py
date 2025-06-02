@@ -110,9 +110,9 @@ def orchestrate_pipeline(input_video: Path, output_root: Path, baseline: float =
     stereo_out = job_dir
 
     final_ou_video = stereo_out / f"{video_stem}_stereo_over_under.mp4"
-    if skip_if_exists and final_ou_video.exists():
-        print(f"⏭️ Skipping {video_stem}, output already exists.")
-        return
+    # if skip_if_exists and final_ou_video.exists():
+    #     print(f"⏭️ Skipping {video_stem}, output already exists.")
+    #     return
 
     depth_out.mkdir(parents=True, exist_ok=True)
     stereo_out.mkdir(parents=True, exist_ok=True)
@@ -124,6 +124,8 @@ def orchestrate_pipeline(input_video: Path, output_root: Path, baseline: float =
     if precomputed_depth:
         print(f"📥 Using precomputed depth map: {precomputed_depth}")
         depth_video = Path(precomputed_depth).resolve()
+    elif skip_if_exists:
+        depth_video = Path(depth_out / f"{input_video.stem}_vis.mp4").resolve()
     else:
         print("🧠 Running depth generation stage...")
         depth_video = generate_depth(input_video, depth_out).resolve()
@@ -138,7 +140,7 @@ if __name__ == "__main__":
     parser.add_argument("--input_dir", type=str, help="Optional directory to process all .mp4 files")
     parser.add_argument("--scenedetect", action="store_true", help="Use PySceneDetect to split video into scenes before processing")
     parser.add_argument("--out", required=True, help="Path to output folder")
-    parser.add_argument("--baseline", type=float, default=25.0, help="Stereo disparity baseline (default=25)")
+    parser.add_argument("--baseline", default="auto", help="Disparity baseline (e.g. 25 or 'auto')")    
     parser.add_argument("--depth", type=str, help="Optional precomputed depth .mp4")
     parser.add_argument("--skip_if_exists", action="store_true", help="Skip processing if final stereo file already exists")
     args = parser.parse_args()
@@ -149,7 +151,11 @@ if __name__ == "__main__":
         video_paths = [Path(args.video)]
     else:
         raise ValueError("Provide --video or --input_dir")
-
+    
+    try:
+        baseline_val = float(args.baseline)
+    except ValueError:
+        baseline_val = args.baseline  # leave as "auto" if not float
     for video_path in video_paths:
         if args.scenedetect:
             print(f"🎬 Splitting: {video_path.name}")

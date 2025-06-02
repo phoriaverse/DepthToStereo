@@ -8,8 +8,51 @@ import shutil
 import subprocess
 import argparse
 
+def estimate_auto_baseline(depth_frame_dir):
+    import glob
+    import cv2
+    import numpy as np
 
-def run_stereo_pipeline(video_name, video_file, depth_file, output_dir, baseline=25):
+    depth_files = sorted(glob.glob(str(Path(depth_frame_dir) / "frame_*.png")))
+
+    # Sample a subset to keep it efficient
+    sample_files = depth_files[::max(1, len(depth_files)//10)]
+
+    all_depths = []
+    for f in sample_files:
+        depth = cv2.imread(f, cv2.IMREAD_GRAYSCALE)
+        if depth is not None:
+            depth = cv2.medianBlur(depth, 5)
+            norm_depth = cv2.normalize(depth.astype(np.float32), None, 0, 1, cv2.NORM_MINMAX)
+            all_depths.append(norm_depth)
+
+    if not all_depths:
+        print("⚠️ No valid depth frames for baseline estimation, using default.")
+        return 25  # fallback
+
+    stacked = np.stack(all_depths)
+    center = stacked[:, stacked.shape[1]//4:3*stacked.shape[1]//4,
+                        stacked.shape[2]//4:3*stacked.shape[2]//4]
+
+    median = np.median(center)
+    spread = np.percentile(center, 90) - np.percentile(center, 10)
+
+    # Heuristic rule
+    if median < 0.3:
+        base = 10
+    elif median < 0.6:
+        base = 20
+    else:
+        base = 35
+
+    if spread > 0.5:
+        base *= 1.1
+    elif spread < 0.2:
+        base *= 0.8
+
+    return int(np.clip(base, 5, 50))
+
+def run_stereo_pipeline(video_name, video_file, depth_file, output_dir, baseline='auto'):
     
     video_file = Path(video_file).resolve()
     depth_file = Path(depth_file).resolve()
@@ -47,6 +90,11 @@ def run_stereo_pipeline(video_name, video_file, depth_file, output_dir, baseline
     depth_frames = sorted(os.listdir(folders["depth_frames"]))
     print(f"🧪 Found {len(video_frames)} video frames and {len(depth_frames)} depth frames")
     # STEP 3: Generate stereo output with progress bar
+        # Estimate baseline automatically if not provided explicitly
+    if baseline == "auto":
+        print("🧠 Estimating baseline from depth map...")
+        baseline = estimate_auto_baseline(folders["depth_frames"])
+        print(f"🔍 Selected baseline: {baseline}")
 
     def generate_stereo_all(video_dir, depth_dir, left_dir, right_dir, ou_dir, baseline=15):
         frame_names = sorted(os.listdir(video_dir))
@@ -109,7 +157,7 @@ def run_stereo_pipeline(video_name, video_file, depth_file, output_dir, baseline
             "ffmpeg", "-framerate", "25", "-i",
             str(frames_dir / "frame_%04d.png"),
             "-c:v", "libx265", "-crf", "20", "-preset", "veryslow", "-tag:v", "hvc1",
-            "-pix_fmt", "yuv420p", str(output_dir / output_name)
+            "-pix_fmt", "yuv420p","-y", str(output_dir / output_name)
         ], check=True)
 
     # encode_video(folders["left_frames"], f"{video_name}_left_eye.mp4")
@@ -136,7 +184,11 @@ if __name__ == "__main__":
     parser.add_argument("--video", required=True, help="Path to mono RGB video")
     parser.add_argument("--depth", required=True, help="Path to depth video")
     parser.add_argument("--out", required=True, help="Directory to save stereo output")
-    parser.add_argument("--baseline", type=float, default=25, help="Disparity baseline")
+    parser.add_argument("--baseline", default="auto", help="Disparity baseline (e.g. 25 or 'auto')")    
+    
     args = parser.parse_args()
-
+    try:
+        baseline_val = float(args.baseline)
+    except ValueError:
+        baseline_val = args.baseline  # leave as "auto" if not float
     run_stereo_pipeline(args.video, args.depth, args.out, baseline=args.baseline)
