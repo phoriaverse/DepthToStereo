@@ -32,14 +32,18 @@ def generate_depth(input_video: Path, output_dir: Path) -> Path:
     print(f"📄 Script exists? {os.path.exists(script)}")
     print(f"📂 CWD exists? {os.path.isdir(cwd)}")
 
-    result = subprocess.run([
-        interpreter, script,
-        "--input_video", str(input_video),
-        "--output_dir", str(depth_out),
-        "--encoder", ENCODER,
-        "--max_res", str(max_res)
-    ], cwd=cwd, check=True)
-
+    try:
+        result = subprocess.run([
+            interpreter, script,
+            "--input_video", str(input_video),
+            "--output_dir", str(depth_out),
+            "--encoder", ENCODER,
+            "--max_res", str(max_res)
+        ], cwd=cwd, check=True)
+    except:
+        print(f"failed")
+        return None
+    
     return depth_out / f"{video_name}_vis.mp4"
 
 def get_video_resolution(video_path: str) -> int:
@@ -128,11 +132,14 @@ def orchestrate_pipeline(input_video: Path, output_root: Path, baseline: float =
         depth_video = Path(depth_out / f"{input_video.stem}_vis.mp4").resolve()
     else:
         print("🧠 Running depth generation stage...")
-        depth_video = generate_depth(input_video, depth_out).resolve()
+        depth_video = generate_depth(input_video, depth_out)
+        if depth_video:
+            depth_video = depth_video.resolve()
 
-    run_stereo_pipeline(str(video_stem), str(input_video), str(depth_video), str(stereo_out), baseline=baseline)
+    if depth_video:
+        run_stereo_pipeline(str(video_stem), str(input_video), str(depth_video), str(stereo_out), baseline=baseline)
 
-    print(f"✅ All done! Outputs in: {job_dir}")
+        print(f"✅ All done! Outputs in: {job_dir}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Orchestrator: Mono video ➝ Depth ➝ Stereo 180")
