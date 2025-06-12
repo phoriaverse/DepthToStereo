@@ -169,7 +169,7 @@ if __name__ == "__main__":
             split_clips = split_video_by_scene(video_path, Path(args.out) / video_path.stem, skip_if_exists=args.skip_if_exists)
 
             for clip in split_clips:
-                orchestrate_pipeline(clip, Path(args.out), baseline=args.baseline, skip_if_exists=args.skip_if_exists)
+                orchestrate_pipeline(clip, Path(args.out), baseline_val, skip_if_exists=args.skip_if_exists)
             
             scene_parent = Path(args.out)
             scene_clips = sorted([
@@ -182,4 +182,4 @@ if __name__ == "__main__":
                 Path(args.out, video_path.stem + "_stereo_combined.mp4")
             )
         else:
-            orchestrate_pipeline(video_path, Path(args.out), baseline=args.baseline, skip_if_exists=args.skip_if_exists)
+            orchestrate_pipeline(video_path, Path(args.out), baseline=baseline_val, skip_if_exists=args.skip_if_exists)
